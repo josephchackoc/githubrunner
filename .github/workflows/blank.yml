@@ -36,4 +36,4 @@ jobs:
           echo test, and deploy your project.
           env
           pwd
-          java -version
+          cat /etc/*release*
