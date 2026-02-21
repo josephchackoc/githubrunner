@@ -38,4 +38,4 @@ jobs:
           set -x
           pwd
           cat /etc/*release*
-          docker -version
+          sleep 3600
