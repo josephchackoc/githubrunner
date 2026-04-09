@@ -38,4 +38,4 @@ jobs:
           set -x
           pwd
           cat /etc/*release*
-          sleep 3600
+      
