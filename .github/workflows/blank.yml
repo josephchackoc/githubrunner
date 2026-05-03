@@ -38,4 +38,5 @@ jobs:
           set -x
           pwd
           cat /etc/*release*
+          docker hello-world
       
