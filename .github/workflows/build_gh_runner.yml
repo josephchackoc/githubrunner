@@ -36,5 +36,5 @@ jobs:
         with:
           context: runners/docker
           push: true
-          tags: ghcr.io/josephchackoc/githubrunner/dockerghrunner:0.0.1
+          tags: ghcr.io/josephchackoc/githubrunner:dghrunner-1.0.${{ github.run_number }}
       
