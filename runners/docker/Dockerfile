@@ -4,14 +4,14 @@ ARG TARGETPLATFORM=linux/x86_64
 ARG RUNNER_VERSION=2.334.0
 ARG RUNNER_CONTAINER_HOOKS_VERSION=0.8.1
 # Docker and Docker Compose arguments
-ENV CHANNEL stable
+ENV CHANNEL=stable
 ARG DOCKER_VERSION=28.0.4
 ARG DOCKER_COMPOSE_VERSION=v2.38.2
 ARG DUMB_INIT_VERSION=1.2.5
 ARG RUNNER_USER_UID=1001
 ARG DOCKER_GROUP_GID=121
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y \
     && apt-get install -y software-properties-common \
@@ -46,7 +46,7 @@ RUN adduser --disabled-password --gecos "" --uid $RUNNER_USER_UID --home /home/r
 
 USER runner
 
-ENV HOME /home/runner
+ENV HOME=/home/runner
 
 WORKDIR /home/runner
 
