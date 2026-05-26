@@ -34,7 +34,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
-          file: runners/docker/Dockerfile
+          context: context
           push: true
           tags: ghcr.io/josephchackoc/ghrunner:0.0.1
       
