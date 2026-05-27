@@ -12,7 +12,7 @@ regToken=$(curl -L \
   https://api.github.com/repos/${GHREPO}/actions/runners/registration-token | jq -r '.token')
 
 cd  $HOME/actions-runner/
-./config.sh --unattended --url https://github.com/${GHREPO} --token $regToken --labels $RUNNERLABEL
+./config.sh --unattended --url https://github.com/${GHREPO} --token $regToken --labels $RUNNERLABEL --ephemeral
 
 ./run.sh
 
