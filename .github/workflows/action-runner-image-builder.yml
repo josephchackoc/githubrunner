@@ -1,0 +1,47 @@
+name: Create and publish Runner Docker image
+
+# Configures this workflow to run every time a change is pushed to the branch called 'main'.
+on:
+  workflow_dispatch: 
+
+# Defines two environment variables for the registry and image name.
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    
+    # Sets the permissions granted to the GITHUB_TOKEN for the actions in this job.
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Uses the docker/login-action to log into the GitHub Container Registry.
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Extracts metadata (tags, labels) to guide the Docker image tagging process.
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      # Builds the Dockerfile and pushes the resulting image to GHCR.
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ id.meta.outputs.tags }}
+          labels: ${{ id.meta.outputs.labels }}
