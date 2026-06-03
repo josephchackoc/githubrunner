@@ -39,4 +39,7 @@ jobs:
           pwd
           cat /etc/*release*
           docker run hello-world
+      - name: Build
+        run: |
+          docker build -t flask-docker-app .
       
