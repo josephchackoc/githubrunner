@@ -1,62 +1,63 @@
-FROM ubuntu:24.04
+# Source: https://github.com/dotnet/dotnet-docker
+FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-noble AS build
 
-ARG RUNNER_VERSION=2.334.0
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+ARG RUNNER_VERSION=2.335.1
+ARG RUNNER_CONTAINER_HOOKS_VERSION=0.7.0
 
-ENV RUNNER_USER_UID=1001
-ENV DOCKER_GROUP_GID=498
+
+RUN apt update -y && apt install --no-install-recommends curl unzip -y
+
+WORKDIR /actions-runner
+RUN export RUNNER_ARCH=${TARGETARCH} \
+    && if [ "$RUNNER_ARCH" = "amd64" ]; then export RUNNER_ARCH=x64 ; fi \
+    && curl -f -L -o runner.tar.gz https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-${TARGETOS}-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz \
+    && tar xzf ./runner.tar.gz \
+    && rm runner.tar.gz
+
+RUN curl -f -L -o runner-container-hooks.zip https://github.com/actions/runner-container-hooks/releases/download/v${RUNNER_CONTAINER_HOOKS_VERSION}/actions-runner-hooks-k8s-${RUNNER_CONTAINER_HOOKS_VERSION}.zip \
+    && unzip ./runner-container-hooks.zip -d ./k8s \
+    && rm runner-container-hooks.zip
+
+RUN curl -f -L -o runner-container-hooks.zip https://github.com/actions/runner-container-hooks/releases/download/v0.8.1/actions-runner-hooks-k8s-0.8.1.zip \
+    && unzip ./runner-container-hooks.zip -d ./k8s-novolume \
+    && rm runner-container-hooks.zip
+
+FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-noble
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV RUNNER_MANUALLY_TRAP_SIG=1
+ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
+ENV ImageOS=ubuntu24
 
-
-
-
-RUN apt-get update -y \
-    && apt-get install -y software-properties-common \
-    curl  zip unzip\
-    ca-certificates \
-    git \
-    git-lfs\
-    iptables \
-    jq \
-    software-properties-common \
-    sudo \
-    fuse-overlayfs \
-    openjdk-21-jdk \
-    python3-pip  \
-    python3-requests\
-    python3-virtualenv \
-    maven \
-    wget &&\
-    install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && \
-    chmod a+r /etc/apt/keyrings/docker.asc && \
-    add-apt-repository -y ppa:git-core/ppa  && \
-    echo "Types: deb"  > /etc/apt/sources.list.d/docker.sources &&\
-    echo "URIs: https://download.docker.com/linux/ubuntu" >> /etc/apt/sources.list.d/docker.sources  &&\
-    echo "Suites: $(. /etc/os-release && echo ${UBUNTU_CODENAME:-$VERSION_CODENAME})" >> /etc/apt/sources.list.d/docker.sources  &&\
-    echo "Components: stable" >> /etc/apt/sources.list.d/docker.sources &&\
-    echo "Architectures: $(dpkg --print-architecture)" >> /etc/apt/sources.list.d/docker.sources &&\
-    echo "Signed-By: /etc/apt/keyrings/docker.asc" >> /etc/apt/sources.list.d/docker.sources  &&\
-    apt-get update -y && \
-    apt-get install -y docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
+# 'gpg-agent' and 'software-properties-common' are needed for the 'add-apt-repository' command that follows
+RUN apt update -y \
+    && apt install -y --no-install-recommends sudo lsb-release gpg-agent software-properties-common curl jq zip unzip  yq  openjdk-21-jdk-headless ca-certificates \
+    && mkdir -p /usr/lib/maven \
+    && curl -fL -o /usr/lib/maven/apache-maven-3.9.2-bin.tar.gz https://archive.apache.org/dist/maven/maven-3/3.9.2/binaries/apache-maven-3.9.2-bin.tar.gz \
+    && tar -xzf /usr/lib/maven/apache-maven-3.9.2-bin.tar.gz -C /usr/lib/maven --strip-components=1 \
+    && ln -s /usr/lib/maven/bin/mvn /usr/bin/mvn \
+    && rm -f /usr/lib/maven/apache-maven-3.9.2-bin.tar.gz \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc \
+    && chmod a+r /etc/apt/keyrings/docker.asc \
+    && printf 'Types: deb\nURIs: https://download.docker.com/linux/ubuntu\nSuites: %s\nComponents: stable\nArchitectures: %s\nSigned-By: /etc/apt/keyrings/docker.asc\n' "$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")" "$(dpkg --print-architecture)" > /etc/apt/sources.list.d/docker.sources \
+    && add-apt-repository ppa:git-core/ppa \
+    && apt update -y \
+    && apt install -y --no-install-recommends docker-ce-cli docker-buildx-plugin docker-compose-plugin git git-lfs \
     && rm -rf /var/lib/apt/lists/*
 
-
-RUN adduser --disabled-password --gecos "" --uid $RUNNER_USER_UID --home /home/runner runner \
-    && groupadd docker --gid $DOCKER_GROUP_GID \
+RUN adduser --disabled-password --gecos "" --uid 1001 runner \
+    && groupadd docker --gid 123 \
     && usermod -aG sudo runner \
     && usermod -aG docker runner \
     && echo "%sudo   ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers \
-    && echo "Defaults env_keep += \"DEBIAN_FRONTEND\"" >> /etc/sudoers
-
-USER runner
-
-ENV HOME=/home/runner
+    && echo "Defaults env_keep += \"DEBIAN_FRONTEND\"" >> /etc/sudoers \
+    && chmod 777 /home/runner
 
 WORKDIR /home/runner
 
-RUN mkdir $HOME/actions-runner && cd $HOME/actions-runner &&\
-    curl -o actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz &&\
-    tar xzf ./actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz 
+COPY --chown=runner:docker --from=build /actions-runner .
 
-COPY --chmod=755 startup.sh /home/runner/startup.sh
+USER runner
